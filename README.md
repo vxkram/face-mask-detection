@@ -1,69 +1,64 @@
-# Face Mask Detection using CNN and Transfer Learning
+# Face Mask Detector
 
-This project focuses on detecting whether a person is wearing a face mask using Convolutional Neural Networks (CNN) and Transfer Learning techniques. The model is trained on images of people with masks, without masks, and with partial masks. Various CNN architectures like basic custom CNN, VGG16, and ResNet50 are used.
+A face mask classifier with a real web frontend: upload a photo, and it tells you whether the person is wearing a mask correctly, incorrectly, or not at all — with confidence scores for all three.
 
-# Project Structure
-Face_Mask_Detection.ipynb: The Jupyter notebook containing the full pipeline for data processing, model building, training, and evaluation.
+| With mask | No mask | Worn incorrectly |
+|---|---|---|
+| ![With mask](docs/screenshots/with-mask.png) | ![No mask](docs/screenshots/without-mask.png) | ![Partial mask](docs/screenshots/partial-mask.png) |
 
-# Requirements
-Before running the code, ensure you have the following packages installed:
+**Stack:** MobileNetV2 (transfer learning) · Flask · vanilla JS frontend
 
-TensorFlow
-Keras
-scikit-learn
-matplotlib
-numpy
-pandas
-PIL (Python Imaging Library)
-You can install the required dependencies using:
+## Background
 
-Copy code
-```bash
-pip install tensorflow keras scikit-learn matplotlib numpy pandas pillow
+`Face_Mask_Detection.ipynb` is the original exploration notebook: it tries a custom CNN, a deeper CNN, VGG16, and ResNet50, trained on a [3-class dataset](https://cdn.iisc.talentsprint.com/CDS/MiniProjects/MP2_FaceMask_Dataset.zip) (with_mask / without_mask / partial_mask). It never exported a model — it was Colab-only, with no saved weights and no way to actually use the result.
+
+`backend/train.py` is the model that's actually deployed: MobileNetV2 with a frozen ImageNet base and a small trained head, at 160×160. On this dataset it reaches **97.6% validation accuracy** in 10 epochs (a few minutes on a CPU) — transfer learning was the right call here, matching what the notebook's own experiments concluded.
+
+## Project structure
+
+```
+backend/
+  train.py            trains the model, saves model/mask_detector.keras
+  app.py               Flask API (/predict) + serves the frontend
+  model/                trained weights + class_names.json (checked in, ~11MB)
+  test_app.py           pytest suite for the API
+frontend/
+  index.html, styles.css, script.js   upload UI, no build step
 ```
 
-# Dataset
-The dataset for this project contains three classes:
+## Setup
 
-partial_mask: People wearing masks incorrectly.
-with_mask: People wearing masks correctly.
-without_mask: People without masks.
-The dataset is automatically downloaded using the following command in the notebook:
-
-python
-Copy code
 ```bash
-!wget -qq https://cdn.iisc.talentsprint.com/CDS/MiniProjects/MP2_FaceMask_Dataset.zip
-!unzip -qq MP2_FaceMask_Dataset.zip
+cd backend
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+
+python app.py   # serves both the API and the frontend on :5001
 ```
 
-Download and extract the dataset.
-Preprocess the data using ImageDataGenerator.
-Build and train the models:
-Custom CNN with 2 convolutional layers.
-Enhanced CNN with multiple convolutional layers.
-Transfer Learning models using VGG16 and ResNet50 pre-trained architectures.
-Model Evaluation:
+Open `http://localhost:5001`.
 
-After training, the model is evaluated on validation data and the training/validation loss is plotted to visualize the performance.
-Model Architectures
-1. Custom CNN (Model 1)
-Two convolutional layers followed by max-pooling and dense layers.
-Trained for 5 epochs with binary_crossentropy loss.
-2. Advanced CNN (Model 2)
-A deeper architecture with four convolutional layers.
-Trained for 5 epochs with better accuracy and loss compared to the basic model.
-3. Transfer Learning (VGG16 and ResNet50)
-Pre-trained VGG16 and ResNet50 architectures are used with custom dense layers for mask classification.
-These models achieved high accuracy with fine-tuning and transfer learning.
-Results
-The custom CNN model achieves good initial performance with basic accuracy.
-The transfer learning models (VGG16, ResNet50) outperform the custom CNN, achieving higher accuracy on the validation set.
-Plots
-The training and validation loss are plotted after each model training to show the model's learning over time.
+The trained model is already checked in, so this works out of the box. To retrain it yourself:
 
-Notes
-Training time may vary depending on your hardware setup. Using GPUs (with TensorFlow-GPU) is recommended for faster training.
+```bash
+# download and extract into backend/data/MP2_FaceMask_Dataset/
+curl -o dataset.zip https://cdn.iisc.talentsprint.com/CDS/MiniProjects/MP2_FaceMask_Dataset.zip
+unzip dataset.zip -d backend/data/
 
+cd backend
+python train.py
+```
 
+## Running tests
 
+```bash
+cd backend
+pip install -r requirements.txt
+pytest
+```
+
+## Notes
+
+- `/predict` returns a friendly 503 (not a crash) if the model file is missing.
+- This is a demo, not a medical or safety device — treat predictions as indicative, not authoritative.
